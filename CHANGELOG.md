@@ -25,6 +25,18 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.1.3] - 2026-09-29
+
+### Fixed
+
+- **Databases brought over from the Faustvii fork can add authors again.** Adding an author
+  failed outright, because a column this fork introduced was never created. The two forks number
+  their database upgrades identically up to a point and then diverge, using the same number for
+  different changes, so the upgrade that adds the column was recorded as already done and
+  skipped. It is now applied again under a new number, and does nothing on installations that
+  already have it. Databases coming from upstream Readarr were never affected.
+  Reported by [@goodboyrobot](https://github.com/goodboyrobot).
+
 ## [11.1.2] - 2026-09-17
 
 ### Fixed
