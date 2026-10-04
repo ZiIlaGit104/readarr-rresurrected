@@ -36,19 +36,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 4. Pull down new upstream code changes into your fork without git remotes
+      # 4. Clean invisible line endings and pull down upstream code changes
       - name: Upstream Code Sync
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           
+          # Fix: Strip out hidden Windows line endings (\r) across all workflow scripts inside the runner
+          sed -i 's/\r//g' .github/workflows/*.yml || echo "Clean"
+          
+          # Define the target URL safely inside a local execution variable
+          TARGET_URL="https://github.com"
+          
           echo "Downloading latest upstream source code snapshot..."
-          # Download the source archive directly from the target branch
-          curl -L "https://github.com" -o upstream.tar.gz
+          curl -L "$TARGET_URL" -o upstream.tar.gz
           
           echo "Extracting archive layers into active runner workspace..."
-          # Extract files and overwrite local copies, strip the top-level archive wrapper folder
           tar -xzf upstream.tar.gz --strip-components=1
           rm upstream.tar.gz
           
