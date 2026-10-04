@@ -89,15 +89,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 9. Push code updates back to your fork and create a Release marker
-      - name: Push Updates and Create Tracking Release
+      # 9. Push code updates back to your fork and create a Release marker (FIXED)
+      - name: Create Tracking Release in Fork
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
-        uses: softprops/action-create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ steps.upstream_release.outputs.tag }}
+          allowUpdates: true
+          tag: ${{ steps.upstream_release.outputs.tag }}
           name: Release ${{ steps.upstream_release.outputs.tag }}
           body: "Automated native ARM64 build targeting upstream release version ${{ steps.upstream_release.outputs.tag }}."
-          draft: false
-          prerelease: false
+          token: ${{ secrets.GHCR_PAT }}
