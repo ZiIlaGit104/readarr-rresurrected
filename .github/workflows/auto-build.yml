@@ -87,13 +87,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 9. Push code updates back to your fork and create a Release marker (FIXED)
+      # 9. Dynamically fetch upstream release tag and create tracking marker
       - name: Create Tracking Release in Fork
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
-          tag: ${{ steps.upstream_release.outputs.tag }}
-          name: Release ${{ steps.upstream_release.outputs.tag }}
-          body: "Automated native ARM64 build targeting upstream release version ${{ steps.upstream_release.outputs.tag }}."
+          tag: ${{ steps.upstream_release.outputs.tag || vars.UPSTREAM_TAG }}
+          name: "Release ${{ steps.upstream_release.outputs.tag || 'Latest Upstream Mirror' }}"
+          body: "Automated native ARM64 build targeting upstream release version."
           token: ${{ secrets.GHCR_PAT }}
