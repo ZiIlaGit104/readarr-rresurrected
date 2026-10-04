@@ -83,7 +83,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/ziilagit104/readarr-rresurrected:latest
-            ghcr.io/ziilagit104/readarr-rresurrected:${{ steps.upstream_release.outputs.tag }}
+            ghcr.io/ziilagit104/readarr-rresurrected:${{ steps.upstream_release.outputs.tag || 'develop' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
