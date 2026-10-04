@@ -47,7 +47,7 @@ jobs:
           sed -i 's/\r//g' .github/workflows/*.yml || echo "Clean"
           
           # Define the target URL safely inside a local execution variable
-          TARGET_URL="https://github.com"
+          TARGET_URL="https://github.com/ricetim/readarr-rresurrected"
           
           echo "Downloading latest upstream source code snapshot..."
           curl -L "$TARGET_URL" -o upstream.tar.gz
