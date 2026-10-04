@@ -87,24 +87,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 9. Dynamically create a tracking release marker via GitHub CLI (POLISHED)
+      # 9. Dynamically create a tracking release marker via GitHub CLI (FIXED PATH TARGETING)
       - name: Create Tracking Release in Fork
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GHCR_PAT }}
         run: |
+          # 1. Fetch the absolute latest tag from Step 1, falling back to 'latest' if run manually
           TARGET_TAG="${{ steps.upstream_release.outputs.tag }}"
           
           if [ -z "$TARGET_TAG" ] || [ "$TARGET_TAG" = "null" ]; then
             TARGET_TAG="latest"
           fi
           
-          echo "Publishing tracking release for version: $TARGET_TAG"
+          echo "Publishing tracking release version: $TARGET_TAG to your fork registry..."
           
-          # Delete the tag locally and remotely if it exists to avoid conflicts on manual runs
-          gh release delete "$TARGET_TAG" --yes || echo "No existing release to delete"
+          # 2. Force delete the existing placeholder tag inside YOUR fork to avoid collisions
+          gh release delete "$TARGET_TAG" --repo "${{ github.repository }}" --yes || echo "No existing release to delete"
           
-          # Create a fresh clean release
+          # 3. Create the tracking release marker explicitly inside YOUR repository space
           gh release create "$TARGET_TAG" \
+            --repo "${{ github.repository }}" \
             --title "Release $TARGET_TAG" \
             --notes "Automated native ARM64 build targeting upstream release configuration."
+
