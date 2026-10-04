@@ -87,13 +87,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 9. Dynamically fetch upstream release tag and create tracking marker
+      # 9. Dynamically fetch upstream release tag and create tracking marker natively
       - name: Create Tracking Release in Fork
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
-        uses: ncipollo/release-action@v1
-        with:
-          allowUpdates: true
-          tag: ${{ steps.upstream_release.outputs.tag || vars.UPSTREAM_TAG }}
-          name: "Release ${{ steps.upstream_release.outputs.tag || 'Latest Upstream Mirror' }}"
-          body: "Automated native ARM64 build targeting upstream release version."
-          token: ${{ secrets.GHCR_PAT }}
+        run: |
+          # 1. Fetch the absolute latest upstream release tag string directly from the GitHub API on the fly
+          UPSTREAM_TAG=$(curl -s "https://github.com" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          
+          # 2. Fallback check: If the API fails or returns blank, protect the runner with a default string
+          if [ -z "$UPSTREAM_TAG" ]; then
+            UPSTREAM_TAG="latest"
+          fi
+          
+          echo "Publishing tracking release tracking marker for tag: $UPSTREAM_TAG"
+          
+          # 3. Create or update the release natively via GitHub's API using your PAT token
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GHCR_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://github.com{{ github.repository }}/releases \
+            -d "{\"tag_name\":\"$UPSTREAM_TAG\",\"name\":\"Release $UPSTREAM_TAG\",\"body\":\"Automated native ARM64 build targeting upstream release version $UPSTREAM_TAG.\",\"draft\":false,\"prerelease\":false}" || echo "Release already exists or updated"
+
