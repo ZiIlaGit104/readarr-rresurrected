@@ -82,8 +82,8 @@ jobs:
           platforms: linux/arm64 
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.upstream_release.outputs.tag }}
+            ghcr.io/ziilagit104/readarr-rresurrected:latest
+            ghcr.io/ziilagit104/readarr-rresurrected:${{ steps.upstream_release.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
