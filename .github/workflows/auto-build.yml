@@ -36,22 +36,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 4. Automatically pull down new upstream code changes into your fork
+      # 4. Pull down new upstream code changes into your fork without git remotes
       - name: Upstream Code Sync
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           
-          # Fix the URL cut-off by ensuring it matches the exact target repository
-          git remote add upstream "https://github.com" || git remote set-url upstream "https://github.com"
+          echo "Downloading latest upstream source code snapshot..."
+          # Download the source archive directly from the target branch
+          curl -L "https://github.com" -o upstream.tar.gz
           
-          git fetch upstream
+          echo "Extracting archive layers into active runner workspace..."
+          # Extract files and overwrite local copies, strip the top-level archive wrapper folder
+          tar -xzf upstream.tar.gz --strip-components=1
+          rm upstream.tar.gz
           
-          # Pull upstream's develop branch changes cleanly
-          git merge upstream/develop --allow-unrelated-histories -m "Automated upstream code sync" || echo "Merged with local baseline adjustments"
-          
-          # Force clean old workflow artifacts out of active workspace
+          # Force remove any conflicting workflow pipelines brought down by the archive
           rm -f .github/workflows/docker.yml
           rm -f .github/workflows/docker.yaml
 
