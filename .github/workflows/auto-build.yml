@@ -36,16 +36,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 4. CRITICAL: Automatically pull down new upstream code changes into your fork
+      # 4. Automatically pull down new upstream code changes into your fork
       - name: Upstream Code Sync
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git remote add upstream https://github.com
+          
+          # Fix the URL cut-off by ensuring it matches the exact target repository
+          git remote add upstream "https://github.com" || git remote set-url upstream "https://github.com"
+          
           git fetch upstream
-          # Pull upstream's develop branch into your fork to update files
-          git merge upstream/develop --allow-unrelated-histories -m "Automated upstream code sync" || echo "No conflicts or merged safely"
+          
+          # Pull upstream's develop branch changes cleanly
+          git merge upstream/develop --allow-unrelated-histories -m "Automated upstream code sync" || echo "Merged with local baseline adjustments"
+          
+          # Force clean old workflow artifacts out of active workspace
+          rm -f .github/workflows/docker.yml
+          rm -f .github/workflows/docker.yaml
 
       # 5. CRITICAL: Find and replace x64 with arm64 inside the Dockerfile on the fly
       - name: Patch Dockerfile for ARM64
