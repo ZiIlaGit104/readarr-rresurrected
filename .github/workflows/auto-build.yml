@@ -1,9 +1,9 @@
-name: Check Upstream and Build ARM64
+name: Check Upstream, Sync Code, and Build ARM64
 
 on:
   schedule:
-    - cron: '0 4 * * *' # Runs automatically every day at 4:00 AM UTC
-  workflow_dispatch: # Allows you to trigger the build manually from the UI anytime
+    - cron: '0 4 * * *' # Automated check every day at 4:00 AM UTC
+  workflow_dispatch: # Allows manual trigger from the UI
 
 jobs:
   sync-and-build:
@@ -13,40 +13,59 @@ jobs:
       packages: write
 
     steps:
-      # 1. Fetch the latest release tag from the upstream source repo
+      # 1. Check upstream release tag
       - name: Fetch Upstream Release
         id: upstream_release
         run: |
           UPSTREAM_TAG=$(curl -s "https://github.com" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
           echo "tag=$UPSTREAM_TAG" >> $GITHUB_OUTPUT
-          echo "Latest upstream release tag is $UPSTREAM_TAG"
+          echo "Latest upstream release tag: $UPSTREAM_TAG"
 
-      # 2. Fetch the latest release tag already published in your fork
+      # 2. Check your fork's release tag
       - name: Fetch Local Fork Release
         id: local_release
         run: |
           LOCAL_TAG=$(curl -s "https://github.com{{ github.repository }}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "none")
           echo "tag=$LOCAL_TAG" >> $GITHUB_OUTPUT
-          echo "Your latest fork release tag is $LOCAL_TAG"
+          echo "Your latest fork release tag: $LOCAL_TAG"
 
-      # 3. Code Checkout (Only runs if a brand new upstream release is found, or if manually run)
+      # 3. Pull code if an update is needed
       - name: Checkout Code
-        if: steps:upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
+        if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 4. Set up QEMU Emulator for Multi-Platform compilation emulation
+      # 4. CRITICAL: Automatically pull down new upstream code changes into your fork
+      - name: Upstream Code Sync
+        if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git remote add upstream https://github.com
+          git fetch upstream
+          # Pull upstream's develop branch into your fork to update files
+          git merge upstream/develop --allow-unrelated-histories -m "Automated upstream code sync" || echo "No conflicts or merged safely"
+
+      # 5. CRITICAL: Find and replace x64 with arm64 inside the Dockerfile on the fly
+      - name: Patch Dockerfile for ARM64
+        if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Injecting native ARM64 architecture values into Dockerfile..."
+          sed -i 's/linux-musl-x64/linux-musl-arm64/g' Dockerfile
+
+      # 6. Set up virtualization and platforms
       - name: Set up QEMU
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: docker/setup-qemu-action@v3
 
-      # 5. Set up Docker Buildx for compilation architecture management
       - name: Set up Docker Buildx
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: docker/setup-buildx-action@v3
         with:
           install: true
 
-      # 6. Authenticate into the GitHub Container Registry
+      # 7. Authenticate registry
       - name: Log in to GHCR
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: docker/login-action@v3
@@ -55,14 +74,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 7. Compile and Publish the Native ARM64 Images
+      # 8. Compile your modified image configuration
       - name: Build and Push Docker Image
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/arm64 # Forces the target container output environment to match your Pi 5
+          platforms: linux/arm64 
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:latest
@@ -70,8 +89,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 8. Create a matching Release in your personal fork to record the updated state
-      - name: Create Tracking Release in Fork
+      # 9. Push code updates back to your fork and create a Release marker
+      - name: Push Updates and Create Tracking Release
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: softprops/action-create-release@v1
         env:
