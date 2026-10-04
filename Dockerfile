@@ -22,7 +22,7 @@ RUN dotnet msbuild src/Readarr.sln \
       -restore \
       -p:Configuration=Release \
       -p:Platform=Posix \
-      -p:RuntimeIdentifiers=linux-musl-x64 \
+      -p:RuntimeIdentifiers=linux-musl-arm64 \
       -p:EnableAnalyzers=false \
       -p:TreatWarningsAsErrors=false \
       -p:AssemblyVersion=${ASSEMBLY_VERSION} \
@@ -66,7 +66,7 @@ ENV COMPlus_EnableDiagnostics=0
 ENV READARR__UPDATE__BRANCH=${BRANCH}
 
 # Copy published backend
-COPY --from=backend-builder /src/_output/net6.0/linux-musl-x64/publish/ /app/bin/
+COPY --from=backend-builder /src/_output/net6.0/linux-musl-arm64/publish/ /app/bin/
 # Copy built frontend
 COPY --from=frontend-builder /src/_output/UI/ /app/bin/UI/
 # Copy bookinfo Python app
