@@ -87,24 +87,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 9. Dynamically fetch upstream release tag and create tracking marker natively
+      # 9. Dynamically create a tracking release marker via GitHub CLI (FIXED)
       - name: Create Tracking Release in Fork
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GHCR_PAT }} 
         run: |
-          # 1. Fetch the absolute latest upstream release tag string directly from the GitHub API on the fly
-          UPSTREAM_TAG=$(curl -s "https://github.com" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          # 1. Fetch the tag string using a clean fallback format
+          TARGET_TAG="${{ steps.upstream_release.outputs.tag }}"
           
-          # 2. Fallback check: If the API fails or returns blank, protect the runner with a default string
-          if [ -z "$UPSTREAM_TAG" ]; then
-            UPSTREAM_TAG="latest"
+          if [ -z "$TARGET_TAG" ] || [ "$TARGET_TAG" = "null" ]; then
+            TARGET_TAG="latest"
           fi
           
-          echo "Publishing tracking release tracking marker for tag: $UPSTREAM_TAG"
+          echo "Publishing tracking release for version: $TARGET_TAG"
           
-          # 3. Create or update the release natively via GitHub's API using your PAT token
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.GHCR_PAT }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://github.com{{ github.repository }}/releases \
-            -d "{\"tag_name\":\"$UPSTREAM_TAG\",\"name\":\"Release $UPSTREAM_TAG\",\"body\":\"Automated native ARM64 build targeting upstream release version $UPSTREAM_TAG.\",\"draft\":false,\"prerelease\":false}" || echo "Release already exists or updated"
+          # 2. Use the official GitHub CLI tool to safely generate the tracking release
+          gh release create "$TARGET_TAG" \
+            --title "Release $TARGET_TAG" \
+            --notes "Automated native ARM64 build targeting upstream release configuration." \
+            --clobber || echo "Release already exists or updated"
 
