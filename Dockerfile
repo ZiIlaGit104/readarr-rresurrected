@@ -18,11 +18,19 @@ COPY Logo/ ./Logo/
 # four-part. The update feed must match exactly, or System.Version comparisons
 # treat "11.0.0" (revision -1) as different from "11.0.0.0".
 ARG ASSEMBLY_VERSION=11.0.0.0
-RUN dotnet msbuild src/Readarr.sln \
+
+# 1. Docker automatically injects this variable during Buildx execution
+ARG TARGETARCH
+
+RUN \
+  # 2. Translates 'amd64' to 'x64' to satisfy .NET, while keeping 'arm64' as-is
+  if [ "$TARGETARCH" = "amd64" ]; then NET_ARCH="x64"; else NET_ARCH="$TARGETARCH"; fi && \
+  dotnet msbuild src/Readarr.sln \
       -restore \
       -p:Configuration=Release \
       -p:Platform=Posix \
-      -p:RuntimeIdentifiers=linux-musl-x64 \
+      # 3. Uses dynamically translated framework variable
+      -p:RuntimeIdentifiers=linux-musl-${NET_ARCH} \
       -p:EnableAnalyzers=false \
       -p:TreatWarningsAsErrors=false \
       -p:AssemblyVersion=${ASSEMBLY_VERSION} \
@@ -65,8 +73,16 @@ ARG BRANCH=develop
 ENV COMPlus_EnableDiagnostics=0
 ENV READARR__UPDATE__BRANCH=${BRANCH}
 
+# 4. Make sure TARGETARCH is visible in Stage 3 as well
+ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "amd64" ]; then echo "x64" > /tmp/arch; else echo "$TARGETARCH" > /tmp/arch; fi
+
 # Copy published backend
-COPY --from=backend-builder /src/_output/net6.0/linux-musl-x64/publish/ /app/bin/
+COPY --from=backend-builder /src/_output/net6.0/linux-musl-*/publish/. /app/bin/
+
+# Copy built frontend
+COPY --from=frontend-builder /src/_output/UI/ /app/bin/UI/
+
 # Copy built frontend
 COPY --from=frontend-builder /src/_output/UI/ /app/bin/UI/
 # Copy bookinfo Python app
