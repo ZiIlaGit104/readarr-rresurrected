@@ -13,43 +13,41 @@ jobs:
       packages: write
 
     steps:
-      # 1. Check upstream release tag
+      # 1. Fetch the absolute latest release tag from the upstream repo using a native plugin
       - name: Fetch Upstream Release
         id: upstream_release
-        run: |
-          UPSTREAM_TAG=$(curl -s "https://github.com" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "tag=$UPSTREAM_TAG" >> $GITHUB_OUTPUT
-          echo "Latest upstream release tag: $UPSTREAM_TAG"
+        uses: oprypin/find-latest-release@v1
+        with:
+          repository: ricetim/readarr-rresurrected
+          releases-only: true
 
-      # 2. Check your fork's release tag
+      # 2. Fetch the latest release tag already published in your personal fork
       - name: Fetch Local Fork Release
         id: local_release
-        run: |
-          LOCAL_TAG=$(curl -s "https://github.com{{ github.repository }}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "none")
-          echo "tag=$LOCAL_TAG" >> $GITHUB_OUTPUT
-          echo "Your latest fork release tag: $LOCAL_TAG"
+        uses: oprypin/find-latest-release@v1
+        continue-on-error: true # Prevents crashing if your fork has zero releases initially
+        with:
+          repository: ${{ github.repository }}
+          releases-only: true
 
-      # 3. Pull code if an update is needed
+      # 3. Code Checkout (Compares the outputs of the native steps safely)
       - name: Checkout Code
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       # 4. Pull down new upstream code changes safely using the official Checkout Plugin
       - name: Upstream Code Sync
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
-          repository: 'ricetim/readarr-rresurrected' 
-          ref: 'develop'                             
+          repository: 'ricetim/readarr-rresurrected'
+          ref: 'develop'
           clean: true
 
-      # 5. CRITICAL: Find and replace x64 with arm64 inside the Dockerfile on the fly
+      # 5. Patch Dockerfile for ARM64
       - name: Patch Dockerfile for ARM64
         if: steps.upstream_release.outputs.tag != steps.local_release.outputs.tag || github.event_name == 'workflow_dispatch'
         run: |
-          echo "Injecting native ARM64 architecture values into Dockerfile..."
           sed -i 's/linux-musl-x64/linux-musl-arm64/g' Dockerfile
 
       # 6. Set up virtualization and platforms
