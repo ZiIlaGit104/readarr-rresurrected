@@ -13,7 +13,7 @@ This repository contains no application source code. Instead, it utilizes **GitH
 
 ## 📦 Deployment via Docker Compose / Portainer
 
-To deploy this native ARM64 image on your Raspberry Pi 5, use the following `docker-compose.yml` stack configuration:
+To deploy this native ARM64 image on your ARM hardware, use the following `docker-compose.yml` stack configuration:
 
 ```yaml
 services:
