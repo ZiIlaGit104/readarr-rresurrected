@@ -192,10 +192,10 @@ def _parse_date(publication_time) -> tuple[Optional[str], Optional[str]]:
         try:
             # Unix timestamp; Goodreads uses milliseconds (abs value > 1e10)
             ts = publication_time / 1000.0 if abs(publication_time) > 1e10 else float(publication_time)
-            
+
             # Python 3.12+ tz-aware UTC timestamp conversion
             dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
-            
+
             # Guard against out-of-range or corrupted years (e.g., 20221)
             if 1 <= dt.year <= 2100:
                 raw = dt.strftime("%Y-%m-%d")
